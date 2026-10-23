@@ -1,0 +1,5 @@
+anthropic>=0.70
+# optional – kostenlose Microsoft-Neural-Stimmen für das Voiceover
+edge-tts>=6.1
+# optional – ElevenLabs wird per HTTP angesprochen
+requests>=2.31

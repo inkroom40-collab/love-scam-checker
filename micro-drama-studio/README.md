@@ -1,0 +1,99 @@
+# 🎬 4K Cinematic Micro Drama Studio
+
+Ein Workflow für **30-Sekunden-Micro-Dramen und Sitcoms** in 4K. Aus einer einzigen Idee erzeugt er:
+
+| # | Schritt | Ergebnis |
+|---|---------|----------|
+| 1 | **Skript** | `script.md`: Logline, Hook, Twist, Cliffhanger, 6–9 Shots mit Dialog und Timing |
+| 2 | **Charakter-Sheets** | `characters/<id>.md`: Aussehen, Garderobe, Stimme, Mimik sowie Prompts für Porträt, Turnaround und Expression Sheet |
+| 3 | **Umgebungen** | `environments/<id>.md`: Set-Design, Licht, Farbpalette, Props sowie Prompts für Establishing Shot, Gegenschuss und Details |
+| 4 | **Shotlist** | `shotlist.md`: pro Shot ein Keyframe-Prompt (Text-to-Image) und ein Motion-Prompt (Image-to-Video) mit Referenzbildern |
+| 5 | **Voiceover** | `audio/lines/*.wav` (jede Zeile einzeln) und `audio/voiceover.wav` (getimt, auf −14 LUFS) |
+| 6 | **Untertitel** | `subtitles/subtitles.srt` für den Upload und `subtitles.ass` mit Pop-in-Animation zum Einbrennen |
+| 7 | **4K-Render** | `render/<projekt>_4k_9x16.mp4`: 2160×3840 bzw. 3840×2160, 24 fps, H.264 High, AAC 320k |
+
+`project.json` ist die zentrale Projektdatei. Jeder Schritt liest sie und schreibt sie fort, deshalb kannst du jeden Schritt einzeln wiederholen oder die Datei von Hand anpassen.
+
+## Installation
+
+```bash
+cd micro-drama-studio
+pip install -r requirements.txt      # anthropic, edge-tts, requests
+sudo apt install ffmpeg              # wird für Voiceover, Untertitel und Render gebraucht
+export ANTHROPIC_API_KEY=sk-ant-...  # für Skript, Charaktere und Umgebungen
+```
+
+## Schnellstart
+
+```bash
+# Offline-Demo ohne API-Key: "Der Prinz aus Dubai"
+python -m studio new --demo
+
+# Eigene Folge (Micro-Drama, Hochformat, Deutsch)
+python -m studio new "Eine Braut erfährt am Altar per WhatsApp, dass der Bräutigam verheiratet ist"
+
+# Sitcom im 16:9-Kinoformat mit Letterbox, auf Englisch
+python -m studio new "Two roommates both secretly adopt the same cat" \
+    --genre sitcom --aspect 16:9 --letterbox --look sitcom-bright --lang en
+```
+
+### Optionen
+
+| Option | Werte | Standard |
+|---|---|---|
+| `--genre` | `micro-drama`, `sitcom`, `thriller`, `romance` | `micro-drama` |
+| `--aspect` | `9:16` (TikTok/Reels/Shorts), `16:9`, `1:1` | `9:16` |
+| `--look` | `cinematic`, `teal-orange`, `sitcom-bright`, `noir` | `cinematic` |
+| `--lang` | Sprache der Dialoge, z. B. `de`, `en` | `de` |
+| `--seconds` | Ziellänge in Sekunden | `30` |
+| `--tts` | `auto`, `elevenlabs`, `edge`, `espeak`, `silent` | `auto` |
+| `--music` | Musikdatei. Sie wird per Sidechain automatisch unter die Stimmen geduckt. | `assets/music.*` |
+| `--letterbox` | Kinobalken im Format 2.39:1 (nur bei 16:9) | aus |
+| `--no-burn` | Untertitel nicht ins Bild einbrennen | aus |
+| `--preset` | x264-Preset, `ultrafast` für schnelle Vorschauen | `medium` |
+| `--model` | Claude-Modell | `claude-opus-5-5` |
+
+## Der Produktions-Loop
+
+1. Mit **`python -m studio new "…"`** entstehen Skript, Sheets, Prompts, Voiceover und Untertitel. Dazu kommt ein **4K-Animatic** mit Storyboard-Karten, mit dem du das Timing sofort prüfen kannst.
+2. **Referenzen erzeugen:** Die Prompts aus `characters/*.md` und `environments/*.md` gibst du in Midjourney, Flux, Nano Banana oder einem ähnlichen Tool ein. Die Ergebnisse speicherst du so:
+   - `assets/characters/<id>.png` als Character Reference (`--cref`, IP-Adapter, Kling Elements)
+   - `assets/environments/<id>.png` als Set- und Style-Referenz
+3. **Shots erzeugen:** Für jeden Shot in `shotlist.md` erstellst du zuerst den Keyframe und animierst ihn dann mit dem Motion-Prompt (Kling, Veo, Runway, Sora, Hailuo …). Speichere das Ergebnis als
+   - `assets/shots/s01.mp4` (Video) **oder** `assets/shots/s01.png` (Standbild, das automatisch eine Ken-Burns-Fahrt passend zur Kamerabewegung bekommt).
+4. Mit **`python -m studio render projects/<name>`** wird alles neu geschnitten: Shots auf die Länge der Voiceover-Spur, Film-Look (Kontrast, Vignette, Korn), Voiceover und Musik, eingebrannte Untertitel. Fehlende Shots bleiben Storyboard-Karten.
+
+Einzelne Schritte wiederholst du so:
+
+```bash
+python -m studio run script     projects/<name> --from-here   # neues Skript und alles danach
+python -m studio run voice      projects/<name> --tts elevenlabs
+python -m studio run subs       projects/<name> --speaker-names
+python -m studio render         projects/<name> --music track.mp3
+```
+
+## Voiceover
+
+- **ElevenLabs** (die beste Qualität): Setze `ELEVENLABS_API_KEY`. Eigene Stimmen legst du pro Figur über `ELEVENLABS_VOICE_<ID>` fest (z. B. `ELEVENLABS_VOICE_GERDA=…`, `ELEVENLABS_VOICE_NARRATOR=…`).
+- **Edge-TTS** (kostenlos, braucht Internet): Neural-Stimmen auf Deutsch und Englisch. Jede Figur bekommt automatisch eine eigene Stimme, und die Emotion steuert Tempo und Tonhöhe.
+- **espeak / silent**: Offline-Fallback. `silent` erzeugt stumme Platzhalter in der geschätzten Sprechlänge, sodass Timing und Untertitel trotzdem stimmen.
+- Schlägt ein Anbieter fehl, wechselt der Workflow automatisch zum nächsten.
+- Die Zuordnung von Figuren zu Stimmen steht in `project.json` unter `voices` und lässt sich dort von Hand ändern.
+
+Die Shot-Längen richten sich nach der **echten Länge des Voiceovers**: Ist ein Satz länger als geplant, verlängert sich der Shot. Wenn die Gesamtlänge mehr als 4 Sekunden von der Ziellänge abweicht, gibt der Workflow eine Warnung aus.
+
+## Projektstruktur
+
+```
+projects/der-prinz-aus-dubai/
+├── project.json            ← alle Daten (Skript, Figuren, Sets, Prompts, Timeline, Stimmen)
+├── script.md
+├── characters/gerda.md …
+├── environments/kitchen.md …
+├── shotlist.md
+├── assets/                 ← hier legst du deine generierten Bilder, Videos und Musik ab
+│   ├── characters/  environments/  shots/  music.mp3
+├── audio/voiceover.wav, audio/lines/*.wav
+├── subtitles/subtitles.srt, subtitles.ass
+└── render/der-prinz-aus-dubai_4k_9x16.mp4
+```
