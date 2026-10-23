@@ -17,7 +17,7 @@ def _find(folder: Path, sid: str, exts: tuple) -> Path | None:
 
 def _grade(w: int, h: int, letterbox: bool) -> str:
     """Film-Look: leichter S-Kontrast, Vignette, feines Korn, optional 2.39:1-Balken (nur Querformat)."""
-    f = "eq=contrast=1.06:saturation=1.05,vignette=PI/5,noise=alls=6:allf=t"
+    f = "eq=contrast=1.06:saturation=1.05,vignette=PI/5,noise=alls=4:allf=t"
     if letterbox and w > h:
         bar = int((h - w / 2.39) / 2)
         f += f",drawbox=x=0:y=0:w=iw:h={bar}:color=black:t=fill,drawbox=x=0:y=ih-{bar}:w=iw:h={bar}:color=black:t=fill"
@@ -120,7 +120,7 @@ def render(proj: Project, burn_subs: bool = True, letterbox: bool = False, music
     title = script["meta"]["title"]
     final = proj.path("render", f"{proj.root.name}_4k_{proj.settings['aspect'].replace(':', 'x')}.mp4")
     _run_in(proj.root, args + amap + vf + [
-        "-c:v", "libx264", "-preset", proj.settings.get("preset", "medium"), "-crf", "17", "-profile:v", "high",
+        "-c:v", "libx264", "-preset", proj.settings.get("preset", "medium"), "-crf", "17", "-maxrate", "60M", "-bufsize", "120M", "-profile:v", "high",
         "-level", "5.2", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "320k", "-movflags", "+faststart",
         "-metadata", f"title={title}", "-t", f"{tl['total']:.3f}", final,
     ])
