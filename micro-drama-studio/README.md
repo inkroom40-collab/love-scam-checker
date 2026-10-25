@@ -53,6 +53,41 @@ python -m studio new "Two roommates both secretly adopt the same cat" \
 | `--preset` | x264-Preset, `ultrafast` für schnelle Vorschauen | `medium` |
 | `--model` | Claude-Modell | `claude-opus-5-5` |
 
+## 🎥 Videos mit Grok (xAI)
+
+Grok Imagine erzeugt die Bilder und Videoclips direkt aus den Sheets und der Shotlist:
+
+1. **Referenzen** (`grok-imagine-image`): ein Porträt pro Figur und ein Set-Bild pro Umgebung → `assets/characters/`, `assets/environments/`
+2. **Keyframes**: das erste Bild jedes Shots. Figuren und Set gehen als Referenzbilder mit, damit Gesichter, Kostüme und Räume in allen Shots gleich bleiben → `assets/keyframes/<shot>.png`
+3. **Videos** (`grok-imagine-video-1.5`): Image-to-Video aus dem Keyframe, zusätzlich mit den Referenzen. Die Länge entspricht der Shot-Länge laut Voiceover (aufgerundet, max. 15 s). → `assets/shots/<shot>.mp4`
+
+Der Render skaliert die Clips mit Lanczos auf 4K hoch, legt Film-Look, Voiceover und Untertitel darüber und schneidet sie auf die exakte Länge. Grok erzeugt höchstens 1080p.
+
+```bash
+pip install xai-sdk
+export XAI_API_KEY=xai-...                     # Key unter console.x.ai
+
+python -m studio grok projects/<name> --render            # alles: Referenzen → Keyframes → Videos → 4K
+python -m studio grok projects/<name> --stage refs        # nur Referenzbilder
+python -m studio grok projects/<name> --stage videos --shots s03,s07 --force   # einzelne Shots neu
+python -m studio new "Idee …" --grok --resolution 1080p   # komplette Folge in einem Rutsch
+```
+
+| Option | Bedeutung | Standard |
+|---|---|---|
+| `--stage` | `all`, `refs`, `keyframes`, `videos` | `all` |
+| `--shots` | nur bestimmte Shots, z. B. `s01,s04` | alle |
+| `--force` | vorhandene Bilder und Videos neu erzeugen | aus |
+| `--resolution` | `480p`, `720p`, `1080p` | `720p` |
+| `--grok-model` | `grok-imagine-video-1.5` oder `grok-imagine-video` | `grok-imagine-video-1.5` |
+| `--grok-audio` | Grok erzeugt eigenen Ton im Clip. Sonst stumm, weil das Voiceover vom Workflow kommt. | aus |
+| `--workers` | parallele Anfragen | `3` |
+
+- Vorhandene Assets werden übersprungen. Ein zweiter Lauf erzeugt nur, was noch fehlt, und deine eigenen Uploads bleiben erhalten.
+- Schlägt ein Shot fehl (Moderation, Timeout), laufen die anderen weiter. Am Ende steht, welche Shots du mit `--shots` wiederholen musst. Ein vorhandener Clip wird nur ersetzt, wenn der neue erfolgreich heruntergeladen wurde.
+- Modell, Modus, Länge und die von der API gemeldeten Kosten stehen pro Clip in `project.json` unter `grok`.
+- Im Dashboard findest du dieselben Funktionen im Tab **Shots & Assets** (komplette Folge oder nur fehlende Videos, mit Auswahl von Modell, Auflösung und Ton) sowie auf jeder Shot-Karte (neuer Keyframe, Video neu). In den Tabs **Charaktere** und **Umgebungen** erzeugst du fehlende Referenzbilder.
+
 ## 🖥 Dashboard
 
 ```bash

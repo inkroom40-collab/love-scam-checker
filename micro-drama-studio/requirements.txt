@@ -3,3 +3,5 @@ anthropic>=0.70
 edge-tts>=6.1
 # optional – ElevenLabs wird per HTTP angesprochen
 requests>=2.31
+# optional – Grok (xAI) für Bilder und Videos
+xai-sdk>=1.21

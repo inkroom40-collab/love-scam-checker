@@ -27,7 +27,7 @@ def _grade(w: int, h: int, letterbox: bool) -> str:
 def _shot_clip(proj: Project, shot: dict, plan: dict, idx: int, w: int, h: int, grade: str, out: Path) -> str:
     dur = plan["duration"]
     shots_dir = proj.root / "assets" / "shots"
-    cover = f"scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},setsar=1"
+    cover = f"scale={w}:{h}:force_original_aspect_ratio=increase:flags=lanczos,crop={w}:{h},setsar=1"
     enc = ["-c:v", "libx264", "-preset", proj.settings.get("preset", "medium"), "-crf", "18",
            "-pix_fmt", "yuv420p", "-r", str(FPS), "-an"]
 
@@ -47,7 +47,8 @@ def _shot_clip(proj: Project, shot: dict, plan: dict, idx: int, w: int, h: int, 
         z = f"zoom='min(1.18,1.0+0.18*on/{frames})'"
     zoompan = f"zoompan={z}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d={frames}:s={w}x{h}:fps={FPS}"
 
-    if img := _find(shots_dir, shot["id"], IMAGE_EXT):
+    # Standbild: eigenes Shot-Bild, sonst ein von Grok erzeugter Keyframe
+    if img := _find(shots_dir, shot["id"], IMAGE_EXT) or _find(proj.root / "assets" / "keyframes", shot["id"], IMAGE_EXT):
         # Standbild → Ken-Burns-Bewegung passend zur Kamerabewegung im Skript
         run(["ffmpeg", "-y", "-loop", "1", "-i", img, "-vf",
              f"scale={int(w * 1.25)}:{int(h * 1.25)}:force_original_aspect_ratio=increase,"

@@ -14,7 +14,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from urllib.parse import parse_qs, unquote, urlparse
 
-from . import llm
+from . import grok, llm
 from .cli import STEPS, new_project, run_step
 from .config import FORMATS, GENRES, LOOKS
 from .project import Project
@@ -22,7 +22,7 @@ from .render import IMAGE_EXT, VIDEO_EXT
 
 WEB = Path(__file__).parent / "web"
 SLUG = re.compile(r"^[a-z0-9][a-z0-9-]*$")
-ASSET_KINDS = {"shots": IMAGE_EXT + VIDEO_EXT, "characters": IMAGE_EXT, "environments": IMAGE_EXT,
+ASSET_KINDS = {"shots": IMAGE_EXT + VIDEO_EXT, "keyframes": IMAGE_EXT, "characters": IMAGE_EXT, "environments": IMAGE_EXT,
                "music": (".mp3", ".wav", ".m4a", ".aac", ".flac", ".ogg")}
 # Wovon hängt welcher Schritt ab? "edit" = Shot im Dashboard bearbeitet, "voices" = Stimme geändert
 DEPENDS = {
@@ -210,7 +210,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._json({"steps": STEPS, "genres": GENRES, "looks": list(LOOKS),
                                "formats": {k: v["label"] for k, v in FORMATS.items()},
                                "tts": ["auto", "elevenlabs", "edge", "espeak", "silent"],
-                               "claude": llm.has_credentials(), "base": str(self.base.resolve())})
+                               "claude": llm.has_credentials(), "grok": grok.available(),
+                               "grok_models": ["grok-imagine-video-1.5", "grok-imagine-video"], "base": str(self.base.resolve())})
         if parts == ["projects"]:
             self.base.mkdir(parents=True, exist_ok=True)
             items = [_summary(Project(p)) for p in self.base.iterdir() if (p / "project.json").exists()]
@@ -293,6 +294,36 @@ class Handler(BaseHTTPRequestHandler):
             proj.data.setdefault("steps", {})["edit"] = time.time()
             proj.save()
             return self._json({"ok": True})
+
+        # Bilder/Videos mit Grok erzeugen
+        if len(parts) == 4 and parts[:2] == ["api", "projects"] and parts[3] == "grok":
+            proj = self._project(parts[2])
+            if not proj:
+                return self._err("Projekt nicht gefunden", 404)
+            stage = payload.get("stage", "all")
+            if stage not in ("all", *grok.STAGES) or payload.get("resolution", "720p") not in ("480p", "720p", "1080p"):
+                return self._err("Ungültige Grok-Einstellungen")
+            shots = [str(x) for x in payload.get("shots") or []] or None
+            args = SimpleNamespace(**_options(payload))
+
+            def work(job):
+                job.current = "grok"
+                grok.run(proj, grok.STAGES if stage == "all" else [stage], shots, force=bool(payload.get("force")),
+                         resolution=payload.get("resolution", "720p"), model=payload.get("model") or None,
+                         audio=bool(payload.get("audio")), workers=int(payload.get("workers", 3)))
+                proj.data.setdefault("steps", {})["grok"] = time.time()
+                proj.save()
+                if payload.get("render"):
+                    job.current = "render"
+                    run_step(proj, "render", args)
+                print("\n✔ Fertig.")
+
+            label = f"Grok: {stage}" + (f" ({', '.join(shots)})" if shots else "")
+            try:
+                job = JOBS.start(proj.root.name, label, work)
+            except RuntimeError as exc:
+                return self._err(str(exc), 409)
+            return self._json({"job": job.id}, 202)
 
         # Stimme einer Figur ändern
         if len(parts) == 5 and parts[:2] == ["api", "projects"] and parts[3] == "voices":

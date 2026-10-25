@@ -171,7 +171,7 @@ dialog h2 { margin: 0; font-size: 19px; }
   .fields, .form-grid { grid-template-columns: 1fr 1fr; }
   .line-row { grid-template-columns: 1fr 1fr; }
   .wrap { padding: 16px; }
-  .logo small, #claudeChip { display: none; }
+  .logo small, #claudeChip, #grokChip { display: none; }
 }
 </style>
 </head>
@@ -180,6 +180,7 @@ dialog h2 { margin: 0; font-size: 19px; }
   <header class="top">
     <div class="logo"><div class="mark">▶</div>Micro Drama Studio <small>4K · 30 s</small></div>
     <div class="spacer"></div>
+    <span class="chip" id="grokChip"><span class="dot"></span><span>…</span></span>
     <span class="chip" id="claudeChip"><span class="dot"></span><span>…</span></span>
     <button class="btn primary" id="newBtn">＋ Neue Folge</button>
   </header>
@@ -225,12 +226,14 @@ const STEP_LABELS = {
   script: ["Skript", "Story, Shots, Dialog"], characters: ["Charaktere", "Sheets & Referenz-Prompts"],
   environments: ["Umgebungen", "Sets, Licht, Palette"], shots: ["Shotlist", "Bild- & Video-Prompts"],
   voice: ["Voiceover", "Stimmen & Timing"], subs: ["Untertitel", "SRT + ASS"], render: ["4K-Render", "Schnitt, Grade, Mix"],
+  grok: ["Grok", "Bilder & Videos"],
 };
 const EMOTIONS = ["neutral", "happy", "sad", "angry", "excited", "shocked", "scared", "sarcastic", "whisper", "calm"];
 const LOC_COLORS = ["#3b5b7a", "#7a3b5c", "#3b7a5a", "#7a5f3b", "#5a3b7a", "#7a3f3b", "#3b6f7a"];
 
 const S = { meta: null, projects: [], slug: null, p: null, tab: "overview", job: null, jobTimer: null,
-            opts: { tts: "auto", preset: "", letterbox: false, burn: true, speaker_names: false } };
+            opts: { tts: "auto", preset: "", letterbox: false, burn: true, speaker_names: false },
+            grok: { resolution: "720p", model: "", audio: false, render: true } };
 
 const $ = (sel, el = document) => el.querySelector(sel);
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -265,6 +268,10 @@ async function init() {
   const chip = $("#claudeChip");
   chip.classList.add(S.meta.claude ? "ok" : "warn");
   chip.lastElementChild.textContent = S.meta.claude ? "Claude verbunden" : "Kein API-Key · Demo-Modus";
+  const gchip = $("#grokChip");
+  gchip.classList.add(S.meta.grok ? "ok" : "warn");
+  gchip.lastElementChild.textContent = S.meta.grok ? "Grok verbunden" : "Grok: kein XAI_API_KEY";
+  gchip.title = S.meta.grok ? "Bilder und Videos werden mit Grok Imagine erzeugt" : "XAI_API_KEY setzen und xai-sdk installieren, dann Dashboard neu starten";
   $("#fGenre").innerHTML = Object.keys(S.meta.genres).map((g) => `<option>${g}</option>`).join("");
   $("#fAspect").innerHTML = Object.entries(S.meta.formats).map(([k, v]) => `<option value="${k}">${k} – ${esc(v.split("(")[0])}</option>`).join("");
   $("#fLook").innerHTML = S.meta.looks.map((l) => `<option>${l}</option>`).join("");
@@ -459,9 +466,12 @@ function tabOverview() {
   const chars = d.characters || [], envs = d.environments || [];
   const words = shots.flatMap((s) => s.lines).reduce((n, l) => n + l.text.split(/\s+/).length, 0);
   const music = a.music.music;
+  const grokCost = Object.entries(d.grok || {}).filter(([k]) => k.startsWith("video:")).reduce((n, [, v]) => n + (v.cost_usd || 0), 0);
+  const keyframes = shots.filter((s) => a.keyframes[s.id]).length;
   const tasks = [
     [chars.every((c) => a.characters[c.id]), `Charakter-Referenzen hochgeladen (${chars.filter((c) => a.characters[c.id]).length}/${chars.length})`, "characters"],
     [envs.every((e) => a.environments[e.id]), `Set-Referenzen hochgeladen (${envs.filter((e) => a.environments[e.id]).length}/${envs.length})`, "environments"],
+    [shots.length && keyframes === shots.length, `Keyframes (${keyframes}/${shots.length})`, "shots"],
     [shots.length && withAsset === shots.length, `Shots generiert (${withAsset}/${shots.length}, davon ${videos} Videos)`, "shots"],
     [!!music, music ? "Musik hinterlegt" : "Musik (optional) – unten hochladen", null],
     [p.status.render.done && !p.status.render.stale, p.status.render.stale ? "Render veraltet – neu rendern" : p.status.render.done ? "4K-Render aktuell" : "Noch nicht gerendert", null],
@@ -480,6 +490,7 @@ function tabOverview() {
         <div class="stat"><div class="l">Figuren / Sets</div><div class="v">${chars.length} <small>/ ${envs.length}</small></div></div>
         <div class="stat"><div class="l">Gesprochene Wörter</div><div class="v">${words} <small>${(words / (p.settings.seconds || 30)).toFixed(1)}/s</small></div></div>
         <div class="stat"><div class="l">Voiceover</div><div class="v" style="font-size:15px">${esc(d.timeline?.provider || "–")}</div></div>
+        <div class="stat"><div class="l">Grok-Kosten</div><div class="v">${grokCost ? `$${grokCost.toFixed(2)}` : "–"} <small>${Object.keys(d.grok || {}).filter((k) => k.startsWith("video:")).length} Clips</small></div></div>
       </div>
       <h4 style="margin:0 0 6px">Produktions-Checkliste</h4>
       <ul class="checklist">${tasks.map(([ok, t, tab]) => `<li><span class="ic">${ok ? "✅" : "⬜"}</span><span style="flex:1">${t}</span>${tab ? `<a href="#" data-goto="${tab}">öffnen →</a>` : ""}</li>`).join("")}</ul>
@@ -534,7 +545,7 @@ function tabCharacters() {
   const cs = S.p.data.characters;
   if (!cs) return needStep("characters", "Noch keine Charakter-Sheets.");
   const voices = S.p.data.voices || {};
-  return `<div class="grid">${cs.map((c) => {
+  return `${grokBar("refs", "Fehlende Referenzbilder mit Grok erzeugen", { video: false })}<div class="grid">${cs.map((c) => {
     const a = S.p.assets.characters[c.id];
     return `<div class="card">
       ${mediaBox("characters", c.id, a, "s", `<b>${esc(c.id)}.png</b>Referenzbild hierher ziehen<br>oder klicken`)}
@@ -559,7 +570,7 @@ function tabEnvironments() {
   const es = S.p.data.environments;
   if (!es) return needStep("environments", "Noch keine Umgebungen.");
   const shape = S.p.settings.aspect === "9:16" ? "v" : S.p.settings.aspect === "1:1" ? "s" : "h";
-  return `<div class="grid">${es.map((e) => {
+  return `${grokBar("refs", "Fehlende Set-Bilder mit Grok erzeugen", { video: false })}<div class="grid">${es.map((e) => {
     const a = S.p.assets.environments[e.id];
     return `<div class="card">
       ${mediaBox("environments", e.id, a, shape === "v" ? "h" : shape, `<b>${esc(e.id)}.png</b>Set-Bild hierher ziehen<br>oder klicken`)}
@@ -583,9 +594,12 @@ function tabShots() {
   if (!sp) return needStep("shots", "Noch keine Shot-Prompts.");
   const shape = S.p.settings.aspect === "9:16" ? "v" : S.p.settings.aspect === "1:1" ? "s" : "h";
   const tl = S.p.data.timeline;
-  return `<div class="hint" style="margin-bottom:12px">Bild oder Video auf einen Shot ziehen: <code>.mp4/.mov</code> wird direkt geschnitten, <code>.png/.jpg</code> bekommt eine Ken-Burns-Fahrt. Danach neu rendern.</div>
+  return `${grokBar("all", "Komplette Folge mit Grok generieren")}
+  <div class="hint" style="margin-bottom:12px">Grok erzeugt zuerst Referenzbilder der Figuren und Sets, dann pro Shot einen Keyframe und daraus den Videoclip. Eigene Bilder oder Videos kannst du jederzeit auf eine Shot-Karte ziehen: <code>.mp4/.mov</code> wird direkt geschnitten, <code>.png/.jpg</code> bekommt eine Ken-Burns-Fahrt.</div>
   <div class="grid">${sc.shots.map((sh) => {
-    const pr = sp.find((x) => x.id === sh.id) || {}, a = S.p.assets.shots[sh.id];
+    const pr = sp.find((x) => x.id === sh.id) || {}, kf = S.p.assets.keyframes[sh.id];
+    const a = S.p.assets.shots[sh.id] || (kf && { ...kf, keyframe: true });
+    const g = (S.p.data.grok || {})[`video:${sh.id}`];
     const dur = tl?.shots.find((x) => x.id === sh.id)?.duration ?? sh.duration_s;
     return `<div class="card" id="shot-${esc(sh.id)}">
       ${mediaBox("shots", sh.id, a, shape, `<b>${esc(sh.id.toUpperCase())} · ${esc(sh.shot_type)}</b>${esc(sh.action)}<br><br>Bild/Video hierher ziehen oder klicken`, "image/*,video/*")}
@@ -595,8 +609,35 @@ function tabShots() {
         ${sh.lines.map((l) => `<div class="dialog-preview"><div class="who">${esc(l.speaker_id.toUpperCase())} <span class="emo">(${esc(l.emotion)})</span></div>${esc(l.text)}</div>`).join("")}
         ${promptBlocks({ "Keyframe (Text-to-Image)": pr.image_prompt, "Motion (Image-to-Video)": pr.video_prompt, "Negative": pr.negative_prompt })}
         <div class="hint">Referenzen: ${(pr.references || []).map((r) => esc(r.split("/").pop())).join(", ")}</div>
+        ${g ? `<div class="hint" style="margin-top:6px">Grok: ${esc(g.mode)} · ${g.duration}s · ${esc(g.resolution)}${g.cost_usd ? ` · $${g.cost_usd.toFixed(2)}` : ""} · ${ago(g.at)}</div>` : ""}
+        <div class="row" style="margin-top:10px">
+          <button class="btn sm" data-needs-idle data-grok='${JSON.stringify({ stage: "keyframes", shots: [sh.id], force: true, render: false })}'>Grok: neuer Keyframe</button>
+          <button class="btn sm" data-needs-idle data-grok='${JSON.stringify({ stage: "videos", shots: [sh.id], force: true })}'>Grok: Video neu</button>
+        </div>
       </div></div>`;
   }).join("")}</div>`;
+}
+
+function grokBar(stage, label, { video = true } = {}) {
+  const g = S.grok;
+  if (!S.meta.grok) return `<div class="opts"><strong style="color:var(--text)">Grok</strong>
+    <span>Nicht verbunden. <code>pip install xai-sdk</code>, <code>XAI_API_KEY</code> setzen (Key unter console.x.ai) und das Dashboard neu starten.</span></div>`;
+  return `<div class="opts"><strong style="color:var(--text)">Grok</strong>
+    ${video ? `<label>Video-Modell <select data-gopt="model"><option value="">grok-imagine-video-1.5</option>${S.meta.grok_models.slice(1).map((m) => `<option ${m === g.model ? "selected" : ""}>${m}</option>`).join("")}</select></label>
+    <label>Auflösung <select data-gopt="resolution">${["480p", "720p", "1080p"].map((r) => `<option ${r === g.resolution ? "selected" : ""}>${r}</option>`).join("")}</select></label>
+    <label><input type="checkbox" data-gopt="audio" ${g.audio ? "checked" : ""}> Grok-Ton</label>
+    <label><input type="checkbox" data-gopt="render" ${g.render ? "checked" : ""}> danach in 4K rendern</label>` : ""}
+    <span class="spacer"></span>
+    ${stage === "all" ? `<button class="btn sm" data-needs-idle data-grok='${JSON.stringify({ stage: "videos" })}'>Nur fehlende Videos</button>` : ""}
+    <button class="btn sm primary" data-needs-idle data-grok='${JSON.stringify({ stage })}'>${label}</button></div>`;
+}
+async function runGrok(req) {
+  const g = S.grok, body = { resolution: g.resolution, model: g.model, audio: g.audio, render: g.render,
+    tts: S.opts.tts, letterbox: S.opts.letterbox, burn: S.opts.burn, speaker_names: S.opts.speaker_names, ...req };
+  try {
+    const r = await api(`/api/projects/${S.slug}/grok`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    startJobPoll(r.job); S.tab = "log"; renderProject(); loadProjects();
+  } catch (e) { toast(e.message, true); }
 }
 
 function mediaBox(kind, id, a, shape, placeholder, accept = "image/*") {
@@ -605,10 +646,10 @@ function mediaBox(kind, id, a, shape, placeholder, accept = "image/*") {
     : `<img src="${fileUrl(a.path, a.mtime)}" alt="">`;
   return `<div class="media ${shape}" data-drop="${kind}/${esc(id)}">
     ${inner}
-    <div class="badge">${a ? `<span class="pill ok">${a.type === "video" ? "Video" : "Bild"} ✓</span>` : `<span class="pill miss">fehlt</span>`}</div>
+    <div class="badge">${a ? (a.keyframe ? `<span class="pill">Keyframe – Video fehlt</span>` : `<span class="pill ok">${a.type === "video" ? "Video" : "Bild"} ✓</span>`) : `<span class="pill miss">fehlt</span>`}</div>
     <div style="position:absolute;top:8px;right:8px" class="row">
       <label class="btn sm" title="Hochladen">⬆<input type="file" accept="${accept}" class="hidden" data-upload="${kind}/${esc(id)}"></label>
-      ${a ? `<button class="btn sm danger" data-del="${kind}/${esc(id)}" title="Entfernen">✕</button>` : ""}
+      ${a ? `<button class="btn sm danger" data-del="${a.keyframe ? "keyframes" : kind}/${esc(id)}" title="Entfernen">✕</button>` : ""}
     </div>
     <div class="drop">Ablegen zum Hochladen</div></div>`;
 }
@@ -652,6 +693,8 @@ function tabLog() {
 function bindTab() {
   const body = $("#tabBody");
   body.querySelectorAll("[data-copy]").forEach((b) => b.onclick = () => copy(b.dataset.copy));
+  body.querySelectorAll("[data-grok]").forEach((b) => b.onclick = () => runGrok(JSON.parse(b.dataset.grok)));
+  body.querySelectorAll("[data-gopt]").forEach((el) => el.onchange = () => { S.grok[el.dataset.gopt] = el.type === "checkbox" ? el.checked : el.value; });
   body.querySelectorAll("[data-goto]").forEach((a) => a.onclick = (e) => { e.preventDefault(); S.tab = a.dataset.goto; renderProject(); });
   body.querySelectorAll("[data-upload]").forEach((inp) => inp.onchange = () => inp.files[0] && upload(inp.dataset.upload, inp.files[0]));
   body.querySelectorAll("[data-del]").forEach((b) => b.onclick = async () => {

@@ -74,6 +74,8 @@ def cmd_new(args) -> None:
     proj = new_project(args)
     steps = STEPS if not args.no_render else STEPS[:-1]
     for s in steps:
+        if s == "render" and args.grok:
+            _run_grok(proj, args)
         run_step(proj, s, args)
     print(f"\nFertig. Lege generierte Bilder/Videos in {proj.root}/assets/shots/<shot-id>.mp4|png ab und "
           f"führe `python -m studio render {proj.root}` erneut aus.")
@@ -86,6 +88,26 @@ def cmd_step(args) -> None:
     todo = STEPS[STEPS.index(args.step):] if args.from_here else [args.step]
     for s in todo:
         run_step(proj, s, args)
+
+
+def _run_grok(proj: Project, args) -> None:
+    from . import grok
+
+    stages = grok.STAGES if getattr(args, "stage", "all") == "all" else [args.stage]
+    shots = [x.strip() for x in args.shots.split(",")] if getattr(args, "shots", None) else None
+    grok.run(proj, stages, shots, force=getattr(args, "force", False), resolution=args.resolution,
+             model=args.grok_model, audio=args.grok_audio, workers=args.workers)
+    proj.data.setdefault("steps", {})["grok"] = time.time()
+    proj.save()
+
+
+def cmd_grok(args) -> None:
+    proj = Project(Path(args.project))
+    if not proj.file.exists():
+        sys.exit(f"Kein Projekt unter {args.project}")
+    _run_grok(proj, args)
+    if args.render:
+        run_step(proj, "render", args)
 
 
 def cmd_dashboard(args) -> None:
@@ -111,7 +133,9 @@ def main() -> None:
     n.add_argument("--demo", action="store_true", help="ohne API: Beispielfolge verwenden")
     n.add_argument("--no-render", action="store_true", help="4K-Render überspringen")
     n.add_argument("--preset", default="medium", help="x264-Preset (ultrafast … veryslow)")
+    n.add_argument("--grok", action="store_true", help="Bilder & Videos vor dem Render mit Grok erzeugen")
     _common(n)
+    _grok_opts(n)
     n.set_defaults(func=cmd_new)
 
     s = sub.add_parser("run", help="einzelnen Schritt (neu) ausführen")
@@ -126,6 +150,16 @@ def main() -> None:
     _common(r)
     r.set_defaults(func=cmd_step, step="render", from_here=False)
 
+    g = sub.add_parser("grok", help="Referenzen, Keyframes und Videoclips mit Grok (xAI) erzeugen")
+    g.add_argument("project")
+    g.add_argument("--stage", default="all", choices=["all", "refs", "keyframes", "videos"])
+    g.add_argument("--shots", help="nur diese Shots, z. B. s01,s04")
+    g.add_argument("--force", action="store_true", help="vorhandene Assets neu erzeugen")
+    g.add_argument("--render", action="store_true", help="danach direkt in 4K rendern")
+    _common(g)
+    _grok_opts(g)
+    g.set_defaults(func=cmd_grok)
+
     d = sub.add_parser("dashboard", help="Web-Dashboard starten")
     d.add_argument("--projects", default="projects", help="Ordner mit den Projekten")
     d.add_argument("--host", default="127.0.0.1")
@@ -134,6 +168,13 @@ def main() -> None:
 
     args = p.parse_args()
     args.func(args)
+
+
+def _grok_opts(sp) -> None:
+    sp.add_argument("--resolution", default="720p", choices=["480p", "720p", "1080p"], help="Grok-Videoauflösung")
+    sp.add_argument("--grok-model", help="Video-Modell (Standard: grok-imagine-video-1.5)")
+    sp.add_argument("--grok-audio", action="store_true", help="Grok-eigenen Ton erzeugen (Standard: stumm)")
+    sp.add_argument("--workers", type=int, default=3, help="parallele Grok-Anfragen")
 
 
 def _common(sp) -> None:
