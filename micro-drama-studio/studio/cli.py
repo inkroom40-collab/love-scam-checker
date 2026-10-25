@@ -1,6 +1,7 @@
 """Kommandozeile: python -m studio <befehl> …"""
 import argparse
 import sys
+import time
 from pathlib import Path
 
 from . import llm, render, subtitles, voice, writers
@@ -15,6 +16,13 @@ def _banner(txt: str) -> None:
 
 
 def run_step(proj: Project, step: str, args) -> None:
+    _run_step(proj, step, args)
+    # Zeitstempel je Schritt → Dashboard erkennt veraltete Ergebnisse
+    proj.data.setdefault("steps", {})[step] = time.time()
+    proj.save()
+
+
+def _run_step(proj: Project, step: str, args) -> None:
     if step == "script":
         _banner("1/7 Skript schreiben")
         d = writers.write_script(proj)
@@ -47,7 +55,7 @@ def run_step(proj: Project, step: str, args) -> None:
         print(f"  ✅ {out}")
 
 
-def cmd_new(args) -> None:
+def new_project(args) -> Project:
     demo = args.demo or not llm.has_credentials()
     if demo and not args.demo:
         print("ℹ Kein ANTHROPIC_API_KEY gefunden → Demo-Modus mit Beispielfolge.")
@@ -59,6 +67,11 @@ def cmd_new(args) -> None:
     title = args.name or ("der-prinz-aus-dubai" if demo else slugify(premise)[:40])
     proj = Project.create(Path(args.out), title, settings)
     print(f"📁 Projekt: {proj.root}")
+    return proj
+
+
+def cmd_new(args) -> None:
+    proj = new_project(args)
     steps = STEPS if not args.no_render else STEPS[:-1]
     for s in steps:
         run_step(proj, s, args)
@@ -73,6 +86,12 @@ def cmd_step(args) -> None:
     todo = STEPS[STEPS.index(args.step):] if args.from_here else [args.step]
     for s in todo:
         run_step(proj, s, args)
+
+
+def cmd_dashboard(args) -> None:
+    from .dashboard import serve
+
+    serve(Path(args.projects), args.host, args.port)
 
 
 def main() -> None:
@@ -106,6 +125,12 @@ def main() -> None:
     r.add_argument("project")
     _common(r)
     r.set_defaults(func=cmd_step, step="render", from_here=False)
+
+    d = sub.add_parser("dashboard", help="Web-Dashboard starten")
+    d.add_argument("--projects", default="projects", help="Ordner mit den Projekten")
+    d.add_argument("--host", default="127.0.0.1")
+    d.add_argument("--port", type=int, default=8765)
+    d.set_defaults(func=cmd_dashboard)
 
     args = p.parse_args()
     args.func(args)

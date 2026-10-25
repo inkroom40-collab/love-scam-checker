@@ -53,6 +53,26 @@ python -m studio new "Two roommates both secretly adopt the same cat" \
 | `--preset` | x264-Preset, `ultrafast` für schnelle Vorschauen | `medium` |
 | `--model` | Claude-Modell | `claude-opus-5-5` |
 
+## 🖥 Dashboard
+
+```bash
+python -m studio dashboard            # → http://127.0.0.1:8765
+python -m studio dashboard --projects ~/serien --port 9000
+```
+
+Das Dashboard läuft lokal im Browser und nutzt dieselben Projektordner wie die Kommandozeile. Es braucht keine zusätzlichen Pakete.
+
+- **Neue Folge**: Idee, Genre, Format, Look, Sprache, Länge und Voiceover festlegen, dann generieren. Der Fortschritt erscheint live im Log.
+- **Pipeline**: Für jeden der 7 Schritte siehst du, ob er offen, fertig, veraltet oder gerade aktiv ist. Mit ▶ startest du einen einzelnen Schritt, mit ▶▶ diesen und alle folgenden. Veraltet heißt: Ein Schritt, von dem er abhängt, wurde später geändert. Das gilt auch für neu hochgeladene Assets beim Render.
+- **Timeline**: Alle Shots im richtigen Längenverhältnis und farbig nach Set, mit Markierungen für die Dialogzeilen und einer Linie für die Ziellänge. Ein Klick auf einen Shot springt zu seiner Karte.
+- **Render & Übersicht**: 4K-Player mit Download, Kennzahlen (Länge, Wörter pro Sekunde, Assets), Produktions-Checkliste und Musik-Upload.
+- **Skript-Editor**: Einstellung, Kamera, Objektiv, Dauer, Action, SFX und Dialog pro Shot bearbeiten. Dialog-Änderungen markieren nur Shotlist, Voiceover, Untertitel und Render als veraltet.
+- **Charaktere und Umgebungen**: Sheets mit Farbpalette, Prompts zum Kopieren und Referenzbildern per Drag & Drop. Die TTS-Stimme lässt sich pro Figur ändern.
+- **Shots & Assets**: Ein generiertes Bild oder Video ziehst du direkt auf die Shot-Karte. Daneben stehen Keyframe-, Motion- und Negative-Prompt.
+- **Voiceover und Untertitel**: Gesamtspur und jede Zeile einzeln anhören, SRT und ASS herunterladen.
+
+> Der Server lauscht standardmäßig nur auf `127.0.0.1`. Mit `--host 0.0.0.0` erreichst du ihn auch aus dem Netzwerk. Das Dashboard hat aber keinen Login, also nur in vertrauenswürdigen Netzen verwenden.
+
 ## Der Produktions-Loop
 
 1. Mit **`python -m studio new "…"`** entstehen Skript, Sheets, Prompts, Voiceover und Untertitel. Dazu kommt ein **4K-Animatic** mit Storyboard-Karten, mit dem du das Timing sofort prüfen kannst.

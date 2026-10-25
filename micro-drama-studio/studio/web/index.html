@@ -1,0 +1,721 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Micro Drama Studio</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%23e8b04b%22/%3E%3Cpath d=%22M12 9l11 7-11 7z%22 fill=%22%231a1306%22/%3E%3C/svg%3E">
+<style>
+:root {
+  --bg: #0c0d10; --panel: #14161b; --panel-2: #1b1e25; --line: #272b34; --line-2: #343946;
+  --text: #e9eaee; --muted: #9096a3; --faint: #646b78;
+  --accent: #e8b04b; --accent-ink: #1a1306; --accent-soft: rgba(232,176,75,.14);
+  --ok: #4fc08d; --ok-soft: rgba(79,192,141,.14); --warn: #e58a4b; --warn-soft: rgba(229,138,75,.15);
+  --err: #e5605b; --run: #6aa8ff; --run-soft: rgba(106,168,255,.15);
+  --radius: 10px; --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--bg); color: var(--text); font: 14px/1.5 Inter, system-ui, -apple-system, "Segoe UI", sans-serif; }
+button, input, select, textarea { font: inherit; color: inherit; }
+a { color: var(--accent); }
+.app { display: grid; grid-template-columns: 270px 1fr; grid-template-rows: 56px 1fr; height: 100vh; }
+header.top { grid-column: 1 / -1; display: flex; align-items: center; gap: 14px; padding: 0 18px; border-bottom: 1px solid var(--line); background: var(--panel); }
+.logo { font-weight: 700; letter-spacing: .02em; display: flex; align-items: center; gap: 10px; }
+.logo .mark { width: 26px; height: 26px; border-radius: 6px; background: linear-gradient(135deg, var(--accent), #b5652e); display: grid; place-items: center; color: var(--accent-ink); font-size: 13px; }
+.logo small { color: var(--muted); font-weight: 500; margin-left: 4px; }
+.spacer { flex: 1; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line-2); color: var(--muted); font-size: 12px; white-space: nowrap; }
+.chip .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
+.chip.ok .dot { background: var(--ok); } .chip.warn .dot { background: var(--warn); }
+.btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line-2); background: var(--panel-2); padding: 6px 12px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+.btn:hover { border-color: var(--faint); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.btn.primary:hover { filter: brightness(1.07); }
+.btn.ghost { background: transparent; }
+.btn.sm { padding: 3px 8px; font-size: 12px; border-radius: 6px; }
+.btn.danger:hover { border-color: var(--err); color: var(--err); }
+
+aside.side { border-right: 1px solid var(--line); overflow: auto; padding: 12px; background: var(--panel); }
+.side h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--faint); margin: 6px 6px 10px; }
+.proj { padding: 10px; border-radius: 8px; cursor: pointer; border: 1px solid transparent; margin-bottom: 4px; }
+.proj:hover { background: var(--panel-2); }
+.proj.active { background: var(--panel-2); border-color: var(--line-2); }
+.proj .t { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.proj .m { color: var(--faint); font-size: 12px; margin: 2px 0 6px; }
+.pips { display: flex; gap: 3px; }
+.pips i { flex: 1; height: 4px; border-radius: 2px; background: var(--line-2); }
+.pips i.done { background: var(--ok); } .pips i.stale { background: var(--warn); } .pips i.run { background: var(--run); animation: pulse 1s infinite alternate; }
+@keyframes pulse { to { opacity: .35; } }
+.empty-side { color: var(--faint); padding: 8px 6px; font-size: 13px; }
+
+main { overflow: auto; }
+.wrap { max-width: 1280px; margin: 0 auto; padding: 22px 26px 60px; }
+.hero { display: flex; gap: 18px; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; }
+.hero h1 { margin: 0 0 4px; font-size: 26px; letter-spacing: -.01em; }
+.hero p { margin: 0 0 10px; color: var(--muted); max-width: 760px; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.opts { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin: 18px 0 10px; padding: 10px 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); font-size: 13px; color: var(--muted); }
+.opts label { display: inline-flex; gap: 6px; align-items: center; }
+select, input[type=text], input[type=number], textarea { background: var(--bg); border: 1px solid var(--line-2); border-radius: 6px; padding: 5px 8px; }
+select:focus, input:focus, textarea:focus { outline: none; border-color: var(--accent); }
+textarea { width: 100%; resize: vertical; }
+
+.pipeline { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; }
+.step { border: 1px solid var(--line); background: var(--panel); border-radius: var(--radius); padding: 12px; display: flex; flex-direction: column; gap: 6px; position: relative; min-height: 118px; }
+.step .n { font-family: var(--mono); color: var(--faint); font-size: 11px; }
+.step .name { font-weight: 600; }
+.step .st { font-size: 12px; color: var(--faint); }
+.step.done { border-color: rgba(79,192,141,.35); } .step.done .st { color: var(--ok); }
+.step.stale { border-color: rgba(229,138,75,.45); } .step.stale .st { color: var(--warn); }
+.step.running { border-color: var(--run); background: linear-gradient(180deg, var(--run-soft), var(--panel)); } .step.running .st { color: var(--run); }
+.step .acts { margin-top: auto; display: flex; gap: 4px; }
+.step .acts .btn { flex: 1; justify-content: center; }
+
+.timeline { margin: 18px 0 6px; }
+.tl-head { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; margin-bottom: 6px; }
+.tl-bar { display: flex; height: 54px; border-radius: 8px; overflow: hidden; border: 1px solid var(--line); background: var(--panel); position: relative; }
+.tl-shot { position: relative; border-right: 1px solid rgba(0,0,0,.45); padding: 6px 7px; font-size: 11px; overflow: hidden; cursor: pointer; }
+.tl-shot:hover { filter: brightness(1.2); }
+.tl-shot b { font-family: var(--mono); display: block; }
+.tl-shot span { color: rgba(255,255,255,.72); white-space: nowrap; }
+.tl-line { position: absolute; bottom: 0; height: 5px; background: rgba(255,255,255,.85); border-radius: 2px 2px 0 0; }
+.tl-target { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--accent); }
+.tl-scale { display: flex; justify-content: space-between; color: var(--faint); font-family: var(--mono); font-size: 10px; margin-top: 4px; }
+
+.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin: 22px 0 18px; overflow-x: auto; }
+.tab { padding: 9px 14px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; white-space: nowrap; }
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--text); border-bottom-color: var(--accent); }
+.tab .cnt { color: var(--faint); font-size: 11px; margin-left: 4px; }
+
+.grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+.card { border: 1px solid var(--line); background: var(--panel); border-radius: var(--radius); overflow: hidden; }
+.card .body { padding: 14px; }
+.card h4 { margin: 0 0 2px; font-size: 15px; }
+.card .sub { color: var(--muted); font-size: 12px; margin-bottom: 10px; }
+.kv { display: grid; grid-template-columns: 110px 1fr; gap: 4px 10px; font-size: 13px; margin: 8px 0; }
+.kv dt { color: var(--faint); } .kv dd { margin: 0; }
+.prompt { position: relative; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; font-family: var(--mono); font-size: 11.5px; color: #c9ccd4; margin: 6px 0 10px; max-height: 120px; overflow: auto; white-space: pre-wrap; }
+.prompt-h { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--muted); margin-top: 8px; }
+.swatches { display: flex; gap: 4px; flex-wrap: wrap; }
+.sw { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); }
+.sw i { width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(255,255,255,.15); }
+
+.media { position: relative; background: #000; display: grid; place-items: center; overflow: hidden; }
+.media.v { height: 380px; } .media.h { aspect-ratio: 16 / 9; } .media.s { height: 300px; }
+.media img, .media video { width: 100%; height: 100%; object-fit: contain; position: absolute; inset: 0; }
+.media .ph { padding: 18px; text-align: center; color: var(--faint); font-size: 12px; }
+.media .ph b { display: block; color: var(--muted); margin-bottom: 6px; font-family: var(--mono); }
+.media .badge { position: absolute; top: 8px; left: 8px; }
+.drop { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(12,13,16,.78); border: 2px dashed var(--accent); color: var(--accent); font-weight: 600; opacity: 0; pointer-events: none; transition: opacity .12s; }
+.media.dragover .drop { opacity: 1; }
+.pill { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: rgba(0,0,0,.6); border: 1px solid var(--line-2); color: var(--muted); }
+.pill.ok { color: var(--ok); border-color: rgba(79,192,141,.4); } .pill.miss { color: var(--warn); border-color: rgba(229,138,75,.4); }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+.render-wrap { display: grid; grid-template-columns: minmax(260px, 420px) 1fr; gap: 22px; align-items: start; }
+.player { background: #000; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--line); }
+.player video { display: block; width: 100%; max-height: 74vh; }
+.player .none { aspect-ratio: 9/16; display: grid; place-items: center; color: var(--faint); padding: 20px; text-align: center; }
+.stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.stat { border: 1px solid var(--line); background: var(--panel); border-radius: var(--radius); padding: 12px; }
+.stat .l { color: var(--faint); font-size: 12px; } .stat .v { font-size: 20px; font-weight: 600; margin-top: 2px; }
+.stat .v small { font-size: 12px; color: var(--muted); font-weight: 400; }
+.checklist { list-style: none; padding: 0; margin: 0; }
+.checklist li { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+.checklist li .ic { width: 18px; text-align: center; }
+
+.shot-edit { border: 1px solid var(--line); background: var(--panel); border-radius: var(--radius); margin-bottom: 12px; }
+.shot-edit .hd { display: flex; gap: 10px; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.shot-edit .hd b { font-family: var(--mono); }
+.shot-edit .bd { padding: 12px 14px; display: grid; gap: 10px; }
+.fields { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.fields label, .bd > label { display: grid; gap: 3px; font-size: 11px; color: var(--faint); text-transform: uppercase; letter-spacing: .05em; }
+.line-row { display: grid; grid-template-columns: 150px 1fr 120px 30px; gap: 6px; margin-bottom: 6px; }
+.line-row input, .line-row select { width: 100%; }
+.dialog-preview { border-left: 2px solid var(--accent); padding-left: 10px; margin: 4px 0; }
+.dialog-preview .who { font-size: 11px; font-weight: 700; letter-spacing: .06em; color: var(--accent); }
+.dialog-preview .emo { color: var(--faint); font-style: italic; font-size: 12px; }
+
+table.lines { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.lines th { text-align: left; color: var(--faint); font-weight: 500; font-size: 12px; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+table.lines td { padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+table.lines td.mono { font-family: var(--mono); font-size: 12px; color: var(--muted); white-space: nowrap; }
+audio { height: 32px; max-width: 260px; }
+pre.log { background: #07080a; border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; font-family: var(--mono); font-size: 12px; line-height: 1.55; max-height: 62vh; overflow: auto; white-space: pre-wrap; color: #c8cbd2; margin: 0; }
+pre.srt { max-height: 60vh; }
+
+.welcome { max-width: 640px; margin: 10vh auto; text-align: center; color: var(--muted); }
+.welcome h2 { color: var(--text); font-size: 28px; margin-bottom: 8px; }
+
+dialog { background: var(--panel); color: var(--text); border: 1px solid var(--line-2); border-radius: 14px; padding: 0; width: min(640px, calc(100vw - 32px)); }
+dialog::backdrop { background: rgba(0,0,0,.6); backdrop-filter: blur(3px); }
+dialog form { padding: 22px; display: grid; gap: 12px; }
+dialog h2 { margin: 0; font-size: 19px; }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+.form-grid label, dialog form > label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
+.form-grid select, .form-grid input { width: 100%; }
+.hint { font-size: 12px; color: var(--faint); }
+.toast { position: fixed; bottom: 18px; right: 18px; background: var(--panel-2); border: 1px solid var(--line-2); padding: 10px 14px; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.4); z-index: 99; max-width: 420px; }
+.toast.err { border-color: var(--err); }
+.hidden { display: none !important; }
+
+@media (max-width: 1100px) { .pipeline { grid-template-columns: repeat(4, minmax(0, 1fr)); } .render-wrap { grid-template-columns: 1fr; } }
+@media (max-width: 760px) {
+  .app { grid-template-columns: 1fr; grid-template-rows: 56px auto 1fr; }
+  aside.side { border-right: 0; border-bottom: 1px solid var(--line); max-height: 180px; }
+  .pipeline { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fields, .form-grid { grid-template-columns: 1fr 1fr; }
+  .line-row { grid-template-columns: 1fr 1fr; }
+  .wrap { padding: 16px; }
+  .logo small, #claudeChip { display: none; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="logo"><div class="mark">▶</div>Micro Drama Studio <small>4K · 30 s</small></div>
+    <div class="spacer"></div>
+    <span class="chip" id="claudeChip"><span class="dot"></span><span>…</span></span>
+    <button class="btn primary" id="newBtn">＋ Neue Folge</button>
+  </header>
+  <aside class="side">
+    <h3>Projekte</h3>
+    <div id="projList"></div>
+  </aside>
+  <main><div class="wrap" id="view"></div></main>
+</div>
+
+<dialog id="newDlg">
+  <form method="dialog" id="newForm">
+    <h2>Neue Folge</h2>
+    <label>Idee / Prämisse
+      <textarea name="premise" rows="3" placeholder="z. B. Eine Braut erfährt am Altar per WhatsApp, dass der Bräutigam schon verheiratet ist"></textarea>
+    </label>
+    <div class="form-grid">
+      <label>Genre <select name="genre" id="fGenre"></select></label>
+      <label>Format <select name="aspect" id="fAspect"></select></label>
+      <label>Look <select name="look" id="fLook"></select></label>
+      <label>Sprache <select name="lang"><option value="de">Deutsch</option><option value="en">English</option><option value="es">Español</option><option value="fr">Français</option><option value="tr">Türkçe</option></select></label>
+      <label>Länge (s) <input type="number" name="seconds" value="30" min="10" max="90"></label>
+      <label>Voiceover <select name="tts" id="fTts"></select></label>
+      <label>Projektname <input type="text" name="name" placeholder="automatisch"></label>
+      <label>Render-Preset <select name="preset"><option>ultrafast</option><option>veryfast</option><option selected>medium</option><option>slow</option></select></label>
+      <label>Claude-Modell <input type="text" name="model" placeholder="claude-opus-5-5"></label>
+    </div>
+    <div class="row">
+      <label class="chip"><input type="checkbox" name="demo"> Demo-Folge (ohne API)</label>
+      <label class="chip"><input type="checkbox" name="render" checked> direkt in 4K rendern</label>
+      <label class="chip"><input type="checkbox" name="letterbox"> Letterbox 2.39:1</label>
+    </div>
+    <div class="hint" id="newHint"></div>
+    <div class="row" style="justify-content:flex-end">
+      <button class="btn ghost" value="cancel" formnovalidate>Abbrechen</button>
+      <button class="btn primary" value="ok" id="createBtn">Generieren ▶</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+const STEP_LABELS = {
+  script: ["Skript", "Story, Shots, Dialog"], characters: ["Charaktere", "Sheets & Referenz-Prompts"],
+  environments: ["Umgebungen", "Sets, Licht, Palette"], shots: ["Shotlist", "Bild- & Video-Prompts"],
+  voice: ["Voiceover", "Stimmen & Timing"], subs: ["Untertitel", "SRT + ASS"], render: ["4K-Render", "Schnitt, Grade, Mix"],
+};
+const EMOTIONS = ["neutral", "happy", "sad", "angry", "excited", "shocked", "scared", "sarcastic", "whisper", "calm"];
+const LOC_COLORS = ["#3b5b7a", "#7a3b5c", "#3b7a5a", "#7a5f3b", "#5a3b7a", "#7a3f3b", "#3b6f7a"];
+
+const S = { meta: null, projects: [], slug: null, p: null, tab: "overview", job: null, jobTimer: null,
+            opts: { tts: "auto", preset: "", letterbox: false, burn: true, speaker_names: false } };
+
+const $ = (sel, el = document) => el.querySelector(sel);
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const fmtT = (s) => (s == null ? "–" : `${Number(s).toFixed(1)} s`);
+const ago = (ts) => {
+  if (!ts) return "";
+  const d = (Date.now() / 1000 - ts);
+  if (d < 60) return "gerade eben"; if (d < 3600) return `vor ${Math.round(d / 60)} min`;
+  if (d < 86400) return `vor ${Math.round(d / 3600)} h`; return new Date(ts * 1000).toLocaleDateString("de-DE");
+};
+const fileUrl = (path, v) => `/files/${S.slug}/${path.split("/").map(encodeURIComponent).join("/")}${v ? `?v=${Math.round(v)}` : ""}`;
+
+async function api(path, opts = {}) {
+  const r = await fetch(path, opts);
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || r.statusText);
+  return data;
+}
+function toast(msg, err = false) {
+  const t = document.createElement("div");
+  t.className = "toast" + (err ? " err" : ""); t.textContent = msg;
+  document.body.appendChild(t); setTimeout(() => t.remove(), err ? 6000 : 2600);
+}
+async function copy(text) {
+  try { await navigator.clipboard.writeText(text); toast("Prompt kopiert ✓"); }
+  catch { toast("Kopieren nicht möglich", true); }
+}
+
+/* ---------------------------------------------------------------- Laden */
+async function init() {
+  S.meta = await api("/api/meta");
+  const chip = $("#claudeChip");
+  chip.classList.add(S.meta.claude ? "ok" : "warn");
+  chip.lastElementChild.textContent = S.meta.claude ? "Claude verbunden" : "Kein API-Key · Demo-Modus";
+  $("#fGenre").innerHTML = Object.keys(S.meta.genres).map((g) => `<option>${g}</option>`).join("");
+  $("#fAspect").innerHTML = Object.entries(S.meta.formats).map(([k, v]) => `<option value="${k}">${k} – ${esc(v.split("(")[0])}</option>`).join("");
+  $("#fLook").innerHTML = S.meta.looks.map((l) => `<option>${l}</option>`).join("");
+  $("#fTts").innerHTML = S.meta.tts.map((t) => `<option>${t}</option>`).join("");
+  $("#newForm").demo.checked = !S.meta.claude;
+  await loadProjects();
+  const want = decodeURIComponent(location.hash.slice(1));
+  const first = S.projects.find((p) => p.slug === want) || S.projects[0];
+  if (first) openProject(first.slug); else renderWelcome();
+}
+
+async function loadProjects() {
+  S.projects = await api("/api/projects");
+  $("#projList").innerHTML = S.projects.length ? S.projects.map((p) => `
+    <div class="proj ${p.slug === S.slug ? "active" : ""}" data-slug="${esc(p.slug)}">
+      <div class="t">${esc(p.title)}</div>
+      <div class="m">${esc(p.settings.genre || "")} · ${esc(p.settings.aspect || "")} · ${ago(p.updated)}</div>
+      <div class="pips">${S.meta.steps.map((s) => `<i class="${p.job && !p.status[s].done ? "run" : p.status[s].stale ? "stale" : p.status[s].done ? "done" : ""}"></i>`).join("")}</div>
+    </div>`).join("") : `<div class="empty-side">Noch keine Projekte.</div>`;
+  document.querySelectorAll(".proj").forEach((el) => el.onclick = () => openProject(el.dataset.slug));
+}
+
+async function openProject(slug, keepTab = false) {
+  if (S.slug !== slug) { S.tab = keepTab ? S.tab : "overview"; stopJobPoll(); S.job = null; }
+  S.slug = slug; location.hash = slug;
+  S.p = await api(`/api/projects/${slug}`);
+  document.querySelectorAll(".proj").forEach((el) => el.classList.toggle("active", el.dataset.slug === slug));
+  if (S.p.job && (!S.job || S.job.id !== S.p.job)) startJobPoll(S.p.job);
+  renderProject();
+}
+async function refresh() { await Promise.all([openProject(S.slug, true), loadProjects()]); }
+
+/* ---------------------------------------------------------------- Jobs */
+async function runStep(step, fromHere) {
+  const body = { step, from_here: fromHere, tts: S.opts.tts, letterbox: S.opts.letterbox, burn: S.opts.burn, speaker_names: S.opts.speaker_names };
+  if (S.opts.preset) body.preset = S.opts.preset;
+  try {
+    const r = await api(`/api/projects/${S.slug}/run`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    startJobPoll(r.job);
+    if (["script", "characters", "environments"].includes(step) || fromHere) S.tab = "log";
+    renderProject(); loadProjects();
+  } catch (e) { toast(e.message, true); }
+}
+function startJobPoll(id) {
+  stopJobPoll();
+  S.job = { id, status: "running", log: "", current: null };
+  const tick = async () => {
+    try {
+      const j = await api(`/api/jobs/${id}`);
+      const prevCurrent = S.job && S.job.current;
+      S.job = j;
+      updateJobUi();
+      if (j.status !== "running") {
+        stopJobPoll();
+        toast(j.status === "done" ? `✔ ${j.label} fertig` : `✖ ${j.label} fehlgeschlagen – siehe Log`, j.status !== "done");
+        if (j.status !== "done") S.tab = "log";
+        return refresh();
+      }
+      if (prevCurrent && prevCurrent !== j.current) refresh();
+    } catch { stopJobPoll(); }
+  };
+  tick(); S.jobTimer = setInterval(tick, 1000);
+}
+function stopJobPoll() { if (S.jobTimer) clearInterval(S.jobTimer); S.jobTimer = null; }
+function jobRunning() { return S.job && S.job.status === "running"; }
+function updateJobUi() {
+  const log = $("#jobLog");
+  if (log) { const atEnd = log.scrollTop + log.clientHeight >= log.scrollHeight - 30; log.textContent = S.job.log || "…"; if (atEnd) log.scrollTop = log.scrollHeight; }
+  const pill = $("#jobPill");
+  if (pill) pill.innerHTML = jobPill();
+  document.querySelectorAll(".step").forEach((el) => el.classList.toggle("running", jobRunning() && S.job.current === el.dataset.step));
+  document.querySelectorAll("[data-needs-idle]").forEach((b) => b.disabled = jobRunning());
+}
+function jobPill() {
+  if (!S.job) return "";
+  const lbl = { running: `läuft: ${esc(STEP_LABELS[S.job.current]?.[0] || S.job.label || "…")}`, done: "Job fertig", error: "Job fehlgeschlagen" }[S.job.status];
+  const cls = { running: "", done: "ok", error: "warn" }[S.job.status];
+  return `<span class="chip ${cls}"><span class="dot" style="${S.job.status === "running" ? "background:var(--run);animation:pulse 1s infinite alternate" : ""}"></span>${lbl}</span>`;
+}
+
+/* ---------------------------------------------------------------- Ansichten */
+function renderWelcome() {
+  $("#view").innerHTML = `<div class="welcome"><h2>Deine erste 30-Sekunden-Folge</h2>
+    <p>Gib eine Idee ein. Der Workflow schreibt Skript, Charakter-Sheets, Sets und Shot-Prompts, vertont alles,
+    erstellt Untertitel und rendert ein 4K-Animatic, das du Shot für Shot durch generierte Bilder und Videos ersetzt.</p>
+    <p style="margin-top:22px"><button class="btn primary" onclick="openNew()">＋ Neue Folge</button></p></div>`;
+}
+
+function renderProject() {
+  const p = S.p, d = p.data, s = p.settings, sc = d.script || {};
+  const shots = sc.shots || [];
+  const tabs = [
+    ["overview", "Render & Übersicht"], ["script", "Skript", shots.length], ["characters", "Charaktere", (d.characters || []).length],
+    ["environments", "Umgebungen", (d.environments || []).length], ["shots", "Shots & Assets", shots.length],
+    ["audio", "Voiceover", (d.timeline?.lines || []).length], ["subs", "Untertitel"], ["log", "Log"],
+  ];
+  $("#view").innerHTML = `
+    <div class="hero">
+      <div>
+        <h1>${esc(p.title)}</h1>
+        <p>${esc(p.logline || s.premise || "")}</p>
+        <div class="chips">
+          <span class="chip">${esc(s.genre)}</span><span class="chip">${esc(s.aspect)} · 4K</span>
+          <span class="chip">Look: ${esc(s.look)}</span><span class="chip">Sprache: ${esc(s.language)}</span>
+          <span class="chip">Ziel ${esc(s.seconds || 30)} s</span>${s.demo ? `<span class="chip warn"><span class="dot"></span>Demo-Daten</span>` : ""}
+        </div>
+      </div>
+      <div class="row" id="jobPill">${jobPill()}</div>
+    </div>
+
+    <div class="opts">
+      <strong style="color:var(--text)">Ausführung</strong>
+      <label>Voiceover <select id="oTts">${S.meta.tts.map((t) => `<option ${t === S.opts.tts ? "selected" : ""}>${t}</option>`).join("")}</select></label>
+      <label>Preset <select id="oPreset"><option value="">Projekt (${esc(s.preset || "medium")})</option>${["ultrafast", "veryfast", "medium", "slow"].map((x) => `<option ${x === S.opts.preset ? "selected" : ""}>${x}</option>`).join("")}</select></label>
+      <label><input type="checkbox" id="oBurn" ${S.opts.burn ? "checked" : ""}> Untertitel einbrennen</label>
+      <label><input type="checkbox" id="oLetter" ${S.opts.letterbox ? "checked" : ""} ${s.aspect !== "16:9" ? "disabled" : ""}> Letterbox</label>
+      <label><input type="checkbox" id="oNames" ${S.opts.speaker_names ? "checked" : ""}> Sprecher in SRT</label>
+    </div>
+
+    <div class="pipeline">${S.meta.steps.map((st, i) => {
+      const x = p.status[st], running = jobRunning() && S.job.current === st;
+      const cls = running ? "running" : x.stale ? "stale" : x.done ? "done" : "";
+      const label = running ? "läuft …" : x.stale ? "veraltet – neu ausführen" : x.done ? `✓ ${ago(x.at) || "fertig"}` : "offen";
+      return `<div class="step ${cls}" data-step="${st}">
+        <div class="n">${String(i + 1).padStart(2, "0")}</div>
+        <div class="name">${STEP_LABELS[st][0]}</div>
+        <div class="st">${STEP_LABELS[st][1]}<br>${label}</div>
+        <div class="acts">
+          <button class="btn sm" data-needs-idle data-run="${st}" title="Nur diesen Schritt ausführen">▶</button>
+          ${i < 6 ? `<button class="btn sm" data-needs-idle data-run-from="${st}" title="Diesen und alle folgenden Schritte">▶▶ ab hier</button>` : ""}
+        </div></div>`;
+    }).join("")}</div>
+
+    ${renderTimeline()}
+
+    <div class="tabs">${tabs.map(([k, l, c]) => `<div class="tab ${S.tab === k ? "active" : ""}" data-tab="${k}">${l}${c != null ? `<span class="cnt">${c}</span>` : ""}</div>`).join("")}</div>
+    <div id="tabBody">${renderTab()}</div>`;
+
+  $("#oTts").onchange = (e) => S.opts.tts = e.target.value;
+  $("#oPreset").onchange = (e) => S.opts.preset = e.target.value;
+  $("#oBurn").onchange = (e) => S.opts.burn = e.target.checked;
+  $("#oLetter").onchange = (e) => S.opts.letterbox = e.target.checked;
+  $("#oNames").onchange = (e) => S.opts.speaker_names = e.target.checked;
+  document.querySelectorAll("[data-run]").forEach((b) => b.onclick = () => runStep(b.dataset.run, false));
+  document.querySelectorAll("[data-run-from]").forEach((b) => b.onclick = () => runStep(b.dataset.runFrom, true));
+  document.querySelectorAll(".tab").forEach((t) => t.onclick = () => { S.tab = t.dataset.tab; renderProject(); });
+  document.querySelectorAll(".tl-shot").forEach((t) => t.onclick = () => { S.tab = "shots"; renderProject(); document.getElementById("shot-" + t.dataset.id)?.scrollIntoView({ behavior: "smooth", block: "center" }); });
+  bindTab();
+  updateJobUi();
+}
+
+function renderTimeline() {
+  const d = S.p.data, shots = d.script?.shots || [];
+  if (!shots.length) return "";
+  const tl = d.timeline, target = S.p.settings.seconds || 30;
+  const plan = shots.map((sh) => {
+    const t = tl?.shots.find((x) => x.id === sh.id);
+    return { ...sh, start: t ? t.start : null, dur: t ? t.duration : sh.duration_s };
+  });
+  let acc = 0; plan.forEach((x) => { if (x.start == null) x.start = acc; acc = x.start + x.dur; });
+  const total = acc, scale = Math.max(total, target);
+  const locs = [...new Set(shots.map((x) => x.location_id))];
+  const lines = tl?.lines || [];
+  const diff = total - target;
+  return `<div class="timeline">
+    <div class="tl-head"><span>Timeline · ${plan.length} Shots · ${tl ? "Länge laut Voiceover" : "geplante Länge (noch kein Voiceover)"}</span>
+      <span style="color:${Math.abs(diff) > 4 ? "var(--warn)" : "var(--muted)"}">${total.toFixed(1)} s / Ziel ${target} s ${Math.abs(diff) > 4 ? "⚠" : ""}</span></div>
+    <div class="tl-bar">
+      ${plan.map((x) => `<div class="tl-shot" data-id="${esc(x.id)}" style="width:${(x.dur / scale) * 100}%;background:${LOC_COLORS[locs.indexOf(x.location_id) % LOC_COLORS.length]}" title="${esc(x.id)} · ${x.dur.toFixed(1)} s · ${esc(x.action)}">
+        <b>${esc(x.id.toUpperCase())}</b><span>${esc(x.shot_type)}</span>
+        ${lines.filter((l) => l.shot === x.id).map((l) => `<div class="tl-line" style="left:${((l.start - x.start) / x.dur) * 100}%;width:${((l.end - l.start) / x.dur) * 100}%"></div>`).join("")}
+      </div>`).join("")}
+      ${scale > target ? `<div class="tl-target" style="left:${(target / scale) * 100}%" title="Ziel ${target} s"></div>` : ""}
+    </div>
+    <div class="tl-scale">${[0, .25, .5, .75, 1].map((f) => `<span>${(scale * f).toFixed(0)}s</span>`).join("")}</div>
+  </div>`;
+}
+
+function renderTab() {
+  const fn = { overview: tabOverview, script: tabScript, characters: tabCharacters, environments: tabEnvironments,
+               shots: tabShots, audio: tabAudio, subs: tabSubs, log: tabLog }[S.tab];
+  return fn();
+}
+const needStep = (step, text) => `<div class="welcome" style="margin:40px auto"><p>${text}</p>
+  <button class="btn primary" data-needs-idle onclick="runStep('${step}', false)">▶ ${STEP_LABELS[step][0]} ausführen</button></div>`;
+
+/* ---- Übersicht */
+function tabOverview() {
+  const p = S.p, d = p.data, shots = d.script?.shots || [], a = p.assets;
+  const withAsset = shots.filter((s) => a.shots[s.id]).length;
+  const videos = shots.filter((s) => a.shots[s.id]?.type === "video").length;
+  const chars = d.characters || [], envs = d.environments || [];
+  const words = shots.flatMap((s) => s.lines).reduce((n, l) => n + l.text.split(/\s+/).length, 0);
+  const music = a.music.music;
+  const tasks = [
+    [chars.every((c) => a.characters[c.id]), `Charakter-Referenzen hochgeladen (${chars.filter((c) => a.characters[c.id]).length}/${chars.length})`, "characters"],
+    [envs.every((e) => a.environments[e.id]), `Set-Referenzen hochgeladen (${envs.filter((e) => a.environments[e.id]).length}/${envs.length})`, "environments"],
+    [shots.length && withAsset === shots.length, `Shots generiert (${withAsset}/${shots.length}, davon ${videos} Videos)`, "shots"],
+    [!!music, music ? "Musik hinterlegt" : "Musik (optional) – unten hochladen", null],
+    [p.status.render.done && !p.status.render.stale, p.status.render.stale ? "Render veraltet – neu rendern" : p.status.render.done ? "4K-Render aktuell" : "Noch nicht gerendert", null],
+  ];
+  return `<div class="render-wrap">
+    <div>
+      <div class="player">${p.render ? `<video controls playsinline preload="metadata" src="${fileUrl(p.render, p.status.render.at)}"></video>`
+        : `<div class="none">Noch kein Render.<br><br><button class="btn primary" data-needs-idle onclick="runStep('render', false)">▶ 4K rendern</button></div>`}</div>
+      ${p.render ? `<div class="row" style="margin-top:10px"><a class="btn" href="${fileUrl(p.render)}" download>⬇ 4K-MP4</a>
+        <button class="btn" data-needs-idle onclick="runStep('render', false)">↻ Neu rendern</button></div>` : ""}
+    </div>
+    <div>
+      <div class="stats">
+        <div class="stat"><div class="l">Länge</div><div class="v">${fmtT(d.timeline?.total)} <small>/ ${p.settings.seconds || 30} s</small></div></div>
+        <div class="stat"><div class="l">Shots</div><div class="v">${shots.length} <small>${withAsset} mit Asset</small></div></div>
+        <div class="stat"><div class="l">Figuren / Sets</div><div class="v">${chars.length} <small>/ ${envs.length}</small></div></div>
+        <div class="stat"><div class="l">Gesprochene Wörter</div><div class="v">${words} <small>${(words / (p.settings.seconds || 30)).toFixed(1)}/s</small></div></div>
+        <div class="stat"><div class="l">Voiceover</div><div class="v" style="font-size:15px">${esc(d.timeline?.provider || "–")}</div></div>
+      </div>
+      <h4 style="margin:0 0 6px">Produktions-Checkliste</h4>
+      <ul class="checklist">${tasks.map(([ok, t, tab]) => `<li><span class="ic">${ok ? "✅" : "⬜"}</span><span style="flex:1">${t}</span>${tab ? `<a href="#" data-goto="${tab}">öffnen →</a>` : ""}</li>`).join("")}</ul>
+      <h4 style="margin:18px 0 6px">Musik</h4>
+      <div class="row">
+        ${music ? `<audio controls src="${fileUrl(music.path, music.mtime)}"></audio><button class="btn sm danger" data-del="music/music">Entfernen</button>` : `<span class="hint">Wird automatisch unter die Stimmen geduckt.</span>`}
+        <label class="btn sm">⬆ ${music ? "Ersetzen" : "Musik hochladen"}<input type="file" accept="audio/*" class="hidden" data-upload="music/music"></label>
+      </div>
+      ${d.script ? `<h4 style="margin:18px 0 6px">Story</h4><dl class="kv">
+        <dt>Hook</dt><dd>${esc(d.script.meta.hook)}</dd><dt>Twist</dt><dd>${esc(d.script.meta.twist)}</dd>
+        <dt>Ende</dt><dd>${esc(d.script.meta.ending)}</dd><dt>Ton</dt><dd>${esc(d.script.meta.tone)}</dd></dl>` : ""}
+    </div></div>`;
+}
+
+/* ---- Skript */
+function tabScript() {
+  const sc = S.p.data.script;
+  if (!sc) return needStep("script", "Noch kein Skript vorhanden.");
+  const speakers = [...sc.cast.map((c) => [c.id, c.name]), ["narrator", "Erzähler (V.O.)"]];
+  const locs = Object.fromEntries(sc.locations.map((l) => [l.id, l.name]));
+  return `<div class="row" style="margin-bottom:12px;justify-content:space-between">
+      <span class="hint">Nach dem Speichern werden Shotlist, Voiceover, Untertitel und Render als veraltet markiert. Danach bei Shotlist „▶▶ ab hier“ ausführen. Charaktere und Sets bleiben unverändert.</span>
+      <a class="btn sm" href="${fileUrl("script.md")}" target="_blank">script.md öffnen</a></div>
+    ${sc.shots.map((sh) => `<div class="shot-edit" data-shot="${esc(sh.id)}">
+      <div class="hd"><b>${esc(sh.id.toUpperCase())}</b><span class="chip">${esc(locs[sh.location_id] || sh.location_id)}</span>
+        <span class="hint">${esc(sh.character_ids.join(", "))}</span><span class="spacer"></span>
+        <button class="btn sm primary" data-needs-idle data-save="${esc(sh.id)}">Speichern</button></div>
+      <div class="bd">
+        <div class="fields">
+          <label>Einstellung<input type="text" name="shot_type" value="${esc(sh.shot_type)}"></label>
+          <label>Kamera<input type="text" name="camera_move" value="${esc(sh.camera_move)}"></label>
+          <label>Objektiv<input type="text" name="lens" value="${esc(sh.lens)}"></label>
+          <label>Dauer (s)<input type="number" step="0.5" min="0.5" name="duration_s" value="${sh.duration_s}"></label>
+        </div>
+        <label>Action (visuell, Englisch)<textarea name="action" rows="2">${esc(sh.action)}</textarea></label>
+        <label>SFX<input type="text" name="sfx" value="${esc(sh.sfx || "")}"></label>
+        <div><div class="hint" style="margin-bottom:6px">DIALOG</div>
+          <div class="lines-box">${sh.lines.map((l) => lineRow(l, speakers)).join("")}</div>
+          <button class="btn sm ghost" data-add-line>＋ Zeile</button></div>
+      </div></div>`).join("")}`;
+}
+function lineRow(l, speakers) {
+  return `<div class="line-row">
+    <select name="speaker_id">${speakers.map(([id, n]) => `<option value="${esc(id)}" ${id === l.speaker_id ? "selected" : ""}>${esc(n)}</option>`).join("")}</select>
+    <input type="text" name="text" value="${esc(l.text)}" placeholder="Dialogzeile">
+    <select name="emotion">${[...new Set([l.emotion, ...EMOTIONS])].map((e) => `<option ${e === l.emotion ? "selected" : ""}>${esc(e)}</option>`).join("")}</select>
+    <button class="btn sm ghost danger" data-del-line title="Zeile löschen">✕</button></div>`;
+}
+
+/* ---- Charaktere */
+function tabCharacters() {
+  const cs = S.p.data.characters;
+  if (!cs) return needStep("characters", "Noch keine Charakter-Sheets.");
+  const voices = S.p.data.voices || {};
+  return `<div class="grid">${cs.map((c) => {
+    const a = S.p.assets.characters[c.id];
+    return `<div class="card">
+      ${mediaBox("characters", c.id, a, "s", `<b>${esc(c.id)}.png</b>Referenzbild hierher ziehen<br>oder klicken`)}
+      <div class="body">
+        <h4>${esc(c.name)}</h4><div class="sub">${esc(c.age)} · ${esc(c.gender)} · ${esc(c.role)}</div>
+        <dl class="kv">
+          <dt>Gesicht</dt><dd>${esc(c.face)}</dd><dt>Haare</dt><dd>${esc(c.hair)}</dd>
+          <dt>Garderobe</dt><dd>${esc(c.wardrobe)}</dd><dt>Merkmal</dt><dd>${esc(c.signature_detail)}</dd>
+          <dt>Persönlichkeit</dt><dd>${esc(c.personality)}</dd><dt>Arc</dt><dd>${esc(c.arc)}</dd>
+          <dt>Stimme</dt><dd>${esc(c.voice.timbre)} · ${esc(c.voice.pace)} · „${esc(c.voice.catchphrase)}“</dd>
+          <dt>Mimik</dt><dd>${esc(c.expressions.join(", "))}</dd>
+          <dt>TTS-Stimme</dt><dd><div class="row"><input type="text" value="${esc(voices[c.id]?.voice || "")}" data-voice="${esc(c.id)}" placeholder="z. B. de-DE-KatjaNeural" style="flex:1;min-width:0">
+            <span class="hint">${esc(voices[c.id]?.provider || "")}</span></div></dd>
+        </dl>
+        ${promptBlocks(c.prompts)}
+      </div></div>`;
+  }).join("")}</div>`;
+}
+
+/* ---- Umgebungen */
+function tabEnvironments() {
+  const es = S.p.data.environments;
+  if (!es) return needStep("environments", "Noch keine Umgebungen.");
+  const shape = S.p.settings.aspect === "9:16" ? "v" : S.p.settings.aspect === "1:1" ? "s" : "h";
+  return `<div class="grid">${es.map((e) => {
+    const a = S.p.assets.environments[e.id];
+    return `<div class="card">
+      ${mediaBox("environments", e.id, a, shape === "v" ? "h" : shape, `<b>${esc(e.id)}.png</b>Set-Bild hierher ziehen<br>oder klicken`)}
+      <div class="body">
+        <h4>${esc(e.name)}</h4><div class="sub">${esc(e.int_ext)} · ${esc(e.time_of_day)}</div>
+        <div class="swatches">${e.color_palette.map((c) => { const hex = (c.match(/#[0-9a-f]{6}/i) || [""])[0]; return `<span class="sw"><i style="background:${hex || "transparent"}"></i>${esc(c)}</span>`; }).join("")}</div>
+        <dl class="kv">
+          <dt>Beschreibung</dt><dd>${esc(e.description)}</dd><dt>Architektur</dt><dd>${esc(e.architecture)}</dd>
+          <dt>Licht</dt><dd>${esc(e.lighting)}</dd><dt>Props</dt><dd>${esc(e.key_props.join(", "))}</dd>
+          <dt>Atmosphäre</dt><dd>${esc(e.atmosphere)}</dd><dt>Ambience</dt><dd>${esc(e.sound_ambience)}</dd>
+        </dl>
+        ${promptBlocks(e.prompts)}
+      </div></div>`;
+  }).join("")}</div>`;
+}
+
+/* ---- Shots */
+function tabShots() {
+  const sc = S.p.data.script, sp = S.p.data.shot_prompts;
+  if (!sc) return needStep("script", "Noch kein Skript vorhanden.");
+  if (!sp) return needStep("shots", "Noch keine Shot-Prompts.");
+  const shape = S.p.settings.aspect === "9:16" ? "v" : S.p.settings.aspect === "1:1" ? "s" : "h";
+  const tl = S.p.data.timeline;
+  return `<div class="hint" style="margin-bottom:12px">Bild oder Video auf einen Shot ziehen: <code>.mp4/.mov</code> wird direkt geschnitten, <code>.png/.jpg</code> bekommt eine Ken-Burns-Fahrt. Danach neu rendern.</div>
+  <div class="grid">${sc.shots.map((sh) => {
+    const pr = sp.find((x) => x.id === sh.id) || {}, a = S.p.assets.shots[sh.id];
+    const dur = tl?.shots.find((x) => x.id === sh.id)?.duration ?? sh.duration_s;
+    return `<div class="card" id="shot-${esc(sh.id)}">
+      ${mediaBox("shots", sh.id, a, shape, `<b>${esc(sh.id.toUpperCase())} · ${esc(sh.shot_type)}</b>${esc(sh.action)}<br><br>Bild/Video hierher ziehen oder klicken`, "image/*,video/*")}
+      <div class="body">
+        <div class="row" style="justify-content:space-between"><h4>${esc(sh.id.toUpperCase())} · ${dur.toFixed(1)} s</h4>
+          <span class="hint">${esc(sh.camera_move)} · ${esc(sh.lens)}</span></div>
+        ${sh.lines.map((l) => `<div class="dialog-preview"><div class="who">${esc(l.speaker_id.toUpperCase())} <span class="emo">(${esc(l.emotion)})</span></div>${esc(l.text)}</div>`).join("")}
+        ${promptBlocks({ "Keyframe (Text-to-Image)": pr.image_prompt, "Motion (Image-to-Video)": pr.video_prompt, "Negative": pr.negative_prompt })}
+        <div class="hint">Referenzen: ${(pr.references || []).map((r) => esc(r.split("/").pop())).join(", ")}</div>
+      </div></div>`;
+  }).join("")}</div>`;
+}
+
+function mediaBox(kind, id, a, shape, placeholder, accept = "image/*") {
+  const inner = !a ? `<div class="ph">${placeholder}</div>`
+    : a.type === "video" ? `<video src="${fileUrl(a.path, a.mtime)}" muted loop playsinline preload="metadata" onmouseenter="this.play()" onmouseleave="this.pause()"></video>`
+    : `<img src="${fileUrl(a.path, a.mtime)}" alt="">`;
+  return `<div class="media ${shape}" data-drop="${kind}/${esc(id)}">
+    ${inner}
+    <div class="badge">${a ? `<span class="pill ok">${a.type === "video" ? "Video" : "Bild"} ✓</span>` : `<span class="pill miss">fehlt</span>`}</div>
+    <div style="position:absolute;top:8px;right:8px" class="row">
+      <label class="btn sm" title="Hochladen">⬆<input type="file" accept="${accept}" class="hidden" data-upload="${kind}/${esc(id)}"></label>
+      ${a ? `<button class="btn sm danger" data-del="${kind}/${esc(id)}" title="Entfernen">✕</button>` : ""}
+    </div>
+    <div class="drop">Ablegen zum Hochladen</div></div>`;
+}
+function promptBlocks(obj) {
+  return Object.entries(obj || {}).filter(([, v]) => v).map(([k, v]) => `
+    <div class="prompt-h"><span>${esc(k.replace(/_/g, " "))}</span><button class="btn sm ghost" data-copy="${esc(v)}">Kopieren</button></div>
+    <div class="prompt">${esc(v)}</div>`).join("");
+}
+
+/* ---- Audio */
+function tabAudio() {
+  const tl = S.p.data.timeline;
+  if (!tl) return needStep("voice", "Noch kein Voiceover.");
+  const names = Object.fromEntries((S.p.data.characters || []).map((c) => [c.id, c.name]));
+  return `<div class="row" style="margin-bottom:14px"><strong>Gesamtspur</strong>
+      <audio controls src="${fileUrl("audio/voiceover.wav", S.p.status.voice.at)}" style="max-width:420px;flex:1"></audio>
+      <span class="chip">${esc(tl.provider)}</span><span class="chip">${fmtT(tl.total)}</span>
+      ${tl.provider === "silent" ? `<span class="chip warn"><span class="dot"></span>stumme Platzhalter – anderen TTS-Anbieter wählen</span>` : ""}</div>
+    <table class="lines"><thead><tr><th>Shot</th><th>Zeit</th><th>Sprecher</th><th>Text</th><th>Emotion</th><th>Clip</th></tr></thead>
+    <tbody>${tl.lines.map((l) => `<tr><td class="mono">${esc(l.shot)}</td><td class="mono">${l.start.toFixed(2)}–${l.end.toFixed(2)}</td>
+      <td>${esc(names[l.speaker] || (l.speaker === "narrator" ? "Erzähler" : l.speaker))}</td><td>${esc(l.text)}</td><td class="mono">${esc(l.emotion)}</td>
+      <td><audio controls preload="none" src="${fileUrl(l.file, S.p.status.voice.at)}"></audio></td></tr>`).join("")}</tbody></table>`;
+}
+
+/* ---- Untertitel */
+function tabSubs() {
+  if (!S.p.srt) return needStep("subs", "Noch keine Untertitel.");
+  return `<div class="row" style="margin-bottom:12px"><a class="btn sm" href="${fileUrl("subtitles/subtitles.srt")}" download>⬇ SRT</a>
+    <a class="btn sm" href="${fileUrl("subtitles/subtitles.ass")}" download>⬇ ASS (gestylt)</a>
+    <span class="hint">SRT für den Plattform-Upload, ASS wird beim Render eingebrannt.</span></div>
+    <pre class="log srt">${esc(S.p.srt)}</pre>`;
+}
+
+/* ---- Log */
+function tabLog() {
+  return S.job ? `<div class="row" style="margin-bottom:10px">${jobPill()}<span class="hint">${esc(S.job.label || "")}</span></div><pre class="log" id="jobLog">${esc(S.job.log || "…")}</pre>`
+    : `<div class="hint">In dieser Sitzung wurde noch kein Job gestartet. Starte einen Schritt in der Pipeline oben, dann erscheint hier die Ausgabe live.</div>`;
+}
+
+/* ---------------------------------------------------------------- Interaktion im Tab */
+function bindTab() {
+  const body = $("#tabBody");
+  body.querySelectorAll("[data-copy]").forEach((b) => b.onclick = () => copy(b.dataset.copy));
+  body.querySelectorAll("[data-goto]").forEach((a) => a.onclick = (e) => { e.preventDefault(); S.tab = a.dataset.goto; renderProject(); });
+  body.querySelectorAll("[data-upload]").forEach((inp) => inp.onchange = () => inp.files[0] && upload(inp.dataset.upload, inp.files[0]));
+  body.querySelectorAll("[data-del]").forEach((b) => b.onclick = async () => {
+    if (!confirm("Asset entfernen?")) return;
+    await api(`/api/projects/${S.slug}/assets/${b.dataset.del}`, { method: "DELETE" }); refresh();
+  });
+  body.querySelectorAll("[data-drop]").forEach((box) => {
+    box.ondragover = (e) => { e.preventDefault(); box.classList.add("dragover"); };
+    box.ondragleave = () => box.classList.remove("dragover");
+    box.ondrop = (e) => { e.preventDefault(); box.classList.remove("dragover"); const f = e.dataTransfer.files[0]; if (f) upload(box.dataset.drop, f); };
+    box.querySelector(".ph")?.addEventListener("click", () => box.querySelector("input[type=file]").click());
+  });
+  body.querySelectorAll("[data-voice]").forEach((inp) => inp.onchange = async () => {
+    try { await api(`/api/projects/${S.slug}/voices/${inp.dataset.voice}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ voice: inp.value.trim() }) });
+      toast("Stimme gespeichert – Voiceover neu ausführen"); } catch (e) { toast(e.message, true); }
+  });
+  // Skript-Editor
+  const sc = S.p.data.script;
+  if (sc && S.tab === "script") {
+    const speakers = [...sc.cast.map((c) => [c.id, c.name]), ["narrator", "Erzähler (V.O.)"]];
+    const bindRows = (box) => box.querySelectorAll("[data-del-line]").forEach((b) => b.onclick = () => b.closest(".line-row").remove());
+    body.querySelectorAll(".shot-edit").forEach((card) => {
+      const box = card.querySelector(".lines-box");
+      bindRows(box);
+      card.querySelector("[data-add-line]").onclick = () => { box.insertAdjacentHTML("beforeend", lineRow({ speaker_id: speakers[0][0], text: "", emotion: "neutral" }, speakers)); bindRows(box); };
+      card.querySelector("[data-save]").onclick = async () => {
+        const val = (n) => card.querySelector(`[name=${n}]`).value;
+        const payload = { shot_type: val("shot_type"), camera_move: val("camera_move"), lens: val("lens"), action: val("action"), sfx: val("sfx"),
+          duration_s: parseFloat(val("duration_s")) || 3,
+          lines: [...box.querySelectorAll(".line-row")].map((r) => ({ speaker_id: r.querySelector("[name=speaker_id]").value, text: r.querySelector("[name=text]").value.trim(), emotion: r.querySelector("[name=emotion]").value })) };
+        try { await api(`/api/projects/${S.slug}/shots/${card.dataset.shot}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+          toast(`${card.dataset.shot.toUpperCase()} gespeichert`); refresh(); } catch (e) { toast(e.message, true); }
+      };
+    });
+  }
+}
+
+async function upload(target, file) {
+  const ext = "." + file.name.split(".").pop().toLowerCase();
+  toast(`Lade ${file.name} hoch …`);
+  try { await api(`/api/projects/${S.slug}/assets/${target}?ext=${encodeURIComponent(ext)}`, { method: "PUT", body: file }); toast("Hochgeladen ✓"); refresh(); }
+  catch (e) { toast(e.message, true); }
+}
+
+/* ---------------------------------------------------------------- Neues Projekt */
+function openNew() { $("#newHint").textContent = S.meta.claude ? "" : "Kein ANTHROPIC_API_KEY gefunden – es wird die Demo-Folge verwendet."; $("#newDlg").showModal(); }
+$("#newBtn").onclick = openNew;
+$("#newForm").addEventListener("submit", async (e) => {
+  if (e.submitter?.value !== "ok") return;
+  e.preventDefault();
+  const f = e.target, fd = Object.fromEntries(new FormData(f));
+  const payload = { ...fd, seconds: Number(fd.seconds), demo: f.demo.checked, render: f.render.checked, letterbox: f.letterbox.checked, run: true };
+  if (!payload.demo && !payload.premise.trim()) { $("#newHint").textContent = "Bitte eine Idee eingeben – oder Demo-Folge wählen."; return; }
+  $("#createBtn").disabled = true;
+  try {
+    const r = await api("/api/projects", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    $("#newDlg").close(); f.reset();
+    S.tab = "log"; await loadProjects(); await openProject(r.slug, true);
+    if (r.job) startJobPoll(r.job);
+  } catch (err) { $("#newHint").textContent = err.message; }
+  finally { $("#createBtn").disabled = false; }
+});
+
+init().catch((e) => { $("#view").innerHTML = `<div class="welcome"><h2>Server nicht erreichbar</h2><p>${esc(e.message)}</p></div>`; });
+</script>
+</body>
+</html>
